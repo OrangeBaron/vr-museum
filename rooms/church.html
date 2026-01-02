@@ -1,0 +1,25 @@
+<a-entity id="room-church">
+    <a-entity id="modello-chiesa" gltf-model="#church-model" position="-2 -1.25 -4"></a-entity>
+    
+    <a-plane 
+      class="nav-floor" 
+      position="-1.8 0 -1.5" 
+      rotation="-90 0 0" 
+      width="9" 
+      height="14" 
+      material="opacity: 0; transparent: true; side: double">
+    </a-plane>
+
+    <a-entity light="type: directional; intensity: 1.5;" position="-1 2 1"></a-entity>
+    <a-entity position="-4 1.6 1" info-spot="text: Interno della chiesa..."></a-entity>
+    <a-entity position="0 1.6 -6" info-spot="text: Lorem ipsum dolor sit amet; sphereColor: #FF5733"></a-entity>
+
+    <a-entity 
+        position="0 1.2 4"
+        waypoint-spot="
+            targetRoom: hospital; 
+            label: VAI ALL'OSPEDALE; 
+            destination: 0 0.1 1.5; 
+            rotation: 0">
+    </a-entity>
+</a-entity>
