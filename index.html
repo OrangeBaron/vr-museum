@@ -13,7 +13,14 @@
     <script type="module" src="js/app.js"></script>
   </head>
   <body>
-    <a-scene background="color: #000">
+    <div id="loading-screen">
+      <div class="loader-content">
+          <h1>Caricamento Museo...</h1>
+          <p>Attendere prego</p>
+      </div>
+    </div>
+
+    <a-scene background="color: #000" renderer="colorManagement: true; physicallyCorrectLights: true;">
       
       <a-assets>
         <a-asset-item id="church-model" src="assets/models/church.glb"></a-asset-item>
