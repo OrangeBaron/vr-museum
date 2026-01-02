@@ -1,8 +1,11 @@
 export const RoomManager = {
-    // 1. Aggiungi dest e rot come argomenti con valori di default
     loadRoom: function(roomName, destination, rotation) {
         console.log(`Caricamento stanza: ${roomName}`);
         
+        // 1. Gestione Loading Screen
+        const loader = document.getElementById('loading-screen');
+        if(loader) loader.classList.remove('fade-out');
+
         const startPos = destination || { x: 0, y: 0.01, z: 0 };
         const startRot = rotation || 0;
 
@@ -10,10 +13,12 @@ export const RoomManager = {
         const rig = document.getElementById('rig');
         const navMeshComponent = rig.components['limit-to-navmesh'];
 
+        // Pausa il controllo navmesh mentre carichiamo
         if (navMeshComponent) {
             navMeshComponent.pause(); 
         }
 
+        // Pulisce la stanza precedente
         container.innerHTML = '';
 
         fetch(`rooms/${roomName}.html`)
@@ -21,32 +26,48 @@ export const RoomManager = {
             .then(html => {
                 container.innerHTML = html;
 
-                // 2. USA I PARAMETRI PASSATI
+                // 2. Posizionamento Player
                 rig.object3D.position.set(startPos.x, startPos.y, startPos.z);
                 rig.setAttribute('rotation', {x: 0, y: startRot, z: 0});
 
-                // 3. RESETTA LA TELECAMERA
+                // 3. Reset Camera
                 const camera = rig.querySelector('[camera]');
                 if (camera && camera.components['look-controls']) {
                     camera.components['look-controls'].yawObject.rotation.y = 0;
                     camera.components['look-controls'].pitchObject.rotation.x = 0;
                 }
 
-                // 4. AGGIORNA IL NAVMESH CON LA POSIZIONE CORRETTA
+                // 4. Aggiorna NavMesh safe position
                 if (navMeshComponent) {
                     navMeshComponent.lastPosition.set(startPos.x, startPos.y, startPos.z);
                 }
 
+                // Attendi un attimo che il DOM si stabilizzi
                 setTimeout(() => {
+                    // Riattiva il NavMesh
                     if (navMeshComponent) {
-                        // Reset finale di sicurezza sulla posizione effettiva
                         navMeshComponent.lastPosition.copy(rig.object3D.position);
                         navMeshComponent.play(); 
                         console.log("Navmesh riattivato.");
                     }
-                }, 200);
+
+                    // Aggiorna gli oggetti interagibili per il player (nuova funzione aggiunta in player.js)
+                    const handLogics = document.querySelectorAll('[hand-logic]');
+                    handLogics.forEach(el => {
+                       if(el.components['hand-logic'].refreshCollidables) {
+                           el.components['hand-logic'].refreshCollidables();
+                       }
+                    });
+
+                    // Nascondi il loader
+                    if (loader) loader.classList.add('fade-out');
+
+                }, 500); // Mezzo secondo di sicurezza
             })
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                if(loader) loader.classList.add('fade-out'); // Nascondi comunque in caso di errore
+            });
     }
 };
 
