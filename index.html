@@ -2,7 +2,7 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8">
-    <title>Test Museo VR</title>
+    <title>Museo VR Fotogrammetrico</title>
     
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -23,23 +23,22 @@
     <a-scene background="color: #000" renderer="colorManagement: true; physicallyCorrectLights: true;">
       
       <a-assets>
-        <a-asset-item id="church-model" src="assets/models/church.glb"></a-asset-item>
-        <a-asset-item id="hospital-model" src="assets/models/hospital.glb"></a-asset-item>
-      </a-assets>
+        </a-assets>
 
       <a-entity light="type: ambient; intensity: 0.6;"></a-entity>
 
       <a-entity id="room-container"></a-entity>
 
       <a-entity id="rig" movement-controls="speed: 0.15; constrainToNavMesh: false" limit-to-navmesh>
+        
         <a-entity camera position="0 1.6 0" look-controls="pointerLockEnabled: true">
             <a-cursor
               position="0 0 -0.05"
               geometry="primitive: ring; radiusInner: 0.0005; radiusOuter: 0.001"
               material="color: black; shader: flat"
-              raycaster="objects: .collidable; far: 1">
-            </a-cursor>
+              raycaster="objects: .collidable; far: 1.5"> </a-cursor>
         </a-entity>
+        
         <a-entity hand-controls="hand: left; handModelStyle: lowPoly; color: #e2b8b4" hand-logic></a-entity>
         <a-entity hand-controls="hand: right; handModelStyle: lowPoly; color: #e2b8b4" hand-logic></a-entity>
       </a-entity>

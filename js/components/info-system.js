@@ -8,30 +8,57 @@ AFRAME.registerComponent('info-panel-logic', {
         this.cameraWorldPos = new THREE.Vector3();
         this.infoWorldPos = new THREE.Vector3();
 
+        // Stato interno per gestire l'isteresi
+        this.isPanelVisible = false;
+
+        // Setup iniziale scale
         if (this.textGroup) this.textGroup.object3D.scale.set(0, 0, 0);
         if (this.sphere) this.sphere.object3D.scale.set(1, 1, 1);
     },
 
-    tick: function () {
+    tick: function (time, timeDelta) {
         if (!this.camera || !this.textGroup || !this.sphere) return;
 
+        // Aggiorna posizioni mondo
         this.camera.object3D.getWorldPosition(this.cameraWorldPos);
-        
-        this.textGroup.object3D.lookAt(this.cameraWorldPos);
-
         this.el.object3D.getWorldPosition(this.infoWorldPos);
 
+        // Calcola distanza (ignorando l'altezza per un'attivazione più naturale, opzionale)
         var dist = this.infoWorldPos.distanceTo(this.cameraWorldPos);
-        var triggerDistance = 1.5;
-
-        // Logica di comparsa/scomparsa
-        var targetScaleText = (dist < triggerDistance) ? 1 : 0;
-        var targetScaleSphere = (dist < triggerDistance) ? 0 : 1;
         
-        var speed = 0.1;
+        // --- LOGICA ISTERESI (Anti-Flicker) ---
+        // Attiva a 1.5m, Disattiva solo se ci si allontana a più di 2.0m
+        if (!this.isPanelVisible && dist < 1.5) {
+            this.isPanelVisible = true;
+        } else if (this.isPanelVisible && dist > 2.0) {
+            this.isPanelVisible = false;
+        }
 
-        this.textGroup.object3D.scale.lerp(new THREE.Vector3(targetScaleText, targetScaleText, targetScaleText), speed);
-        this.sphere.object3D.scale.lerp(new THREE.Vector3(targetScaleSphere, targetScaleSphere, targetScaleSphere), speed);
+        // Definisci i target di scala in base allo stato
+        var targetScaleText = this.isPanelVisible ? 1 : 0;
+        var targetScaleSphere = this.isPanelVisible ? 0 : 1;
+        
+        // Velocità di animazione (Lerp factor)
+        // Usiamo timeDelta per renderlo indipendente dal framerate (circa 60fps -> 16ms)
+        var lerpFactor = 0.1; // Valore empirico per fluidità
+
+        // Applica l'animazione fluida (Lerp)
+        var currentTextScale = this.textGroup.object3D.scale.x;
+        var currentSphereScale = this.sphere.object3D.scale.x;
+
+        // Interpola verso il target
+        var newTextScale = THREE.MathUtils.lerp(currentTextScale, targetScaleText, lerpFactor);
+        var newSphereScale = THREE.MathUtils.lerp(currentSphereScale, targetScaleSphere, lerpFactor);
+
+        this.textGroup.object3D.scale.setScalar(newTextScale);
+        this.sphere.object3D.scale.setScalar(newSphereScale);
+
+        // --- OTTIMIZZAZIONE LOOK-AT ---
+        // Ruota il testo verso il giocatore SOLO se è visibile (o si sta aprendo)
+        // Risparmia calcoli CPU quando i pannelli sono chiusi
+        if (newTextScale > 0.01) {
+            this.textGroup.object3D.lookAt(this.cameraWorldPos);
+        }
     }
 });
 
@@ -39,7 +66,7 @@ AFRAME.registerComponent('info-panel-logic', {
 AFRAME.registerComponent('info-spot', {
     schema: {
         text: {type: 'string', default: 'Descrizione mancante'},
-        sphereColor: {type: 'color', default: '#007bff'}
+        sphereColor: {type: 'color', default: '#007bff'} // Blu default
     },
 
     init: function() {
@@ -51,9 +78,11 @@ AFRAME.registerComponent('info-spot', {
         sphere.setAttribute('radius', '0.15');
         sphere.setAttribute('color', data.sphereColor);
         sphere.setAttribute('class', 'collidable info-sphere');
+        
+        // Colleghiamo l'interactive-object per feedback tattile/click
         sphere.setAttribute('interactive-object', '');
         
-        // Animazione della sfera
+        // Animazione della sfera (rotazione continua per attirare l'attenzione)
         sphere.setAttribute('animation', {
             property: 'rotation',
             to: '0 360 0',
@@ -62,40 +91,31 @@ AFRAME.registerComponent('info-spot', {
             easing: 'linear'
         });
 
-        // Testo "i" sulla sfera
-        var iTextFront = document.createElement('a-text');
-        iTextFront.setAttribute('value', 'i');
-        iTextFront.setAttribute('align', 'center');
-        iTextFront.setAttribute('position', '0 0 0.151');
-        iTextFront.setAttribute('width', '4');
-        
-        var iTextBack = document.createElement('a-text');
-        iTextBack.setAttribute('value', 'i');
-        iTextBack.setAttribute('align', 'center');
-        iTextBack.setAttribute('position', '0 0 -0.151');
-        iTextBack.setAttribute('rotation', '0 180 0');
-        iTextBack.setAttribute('width', '4');
+        // Testo "i" sulla sfera (Fronte e Retro)
+        this.createIconText(sphere, 0.151, 0);       // Fronte
+        this.createIconText(sphere, -0.151, 180);    // Retro
 
-        sphere.appendChild(iTextFront);
-        sphere.appendChild(iTextBack);
-
-        // 2. Creiamo il Gruppo Testo (Pannello)
+        // 2. Creiamo il Gruppo Testo (Pannello informativo)
         var textGroup = document.createElement('a-entity');
         textGroup.setAttribute('class', 'info-text-group');
-        textGroup.setAttribute('scale', '0 0 0');
+        textGroup.setAttribute('scale', '0 0 0'); // Parte nascosto
 
+        // Sfondo nero semitrasparente per leggibilità
         var bgPlane = document.createElement('a-plane');
-        bgPlane.setAttribute('color', 'black');
-        bgPlane.setAttribute('opacity', '0.8');
-        bgPlane.setAttribute('width', '1.5');
-        bgPlane.setAttribute('height', '0.8'); 
+        bgPlane.setAttribute('color', '#111'); // Grigio molto scuro
+        bgPlane.setAttribute('opacity', '0.85');
+        bgPlane.setAttribute('width', '1.6');
+        bgPlane.setAttribute('height', '0.9'); 
+        bgPlane.setAttribute('class', 'collidable'); // Cliccabile per evitare click through
 
+        // Testo descrittivo
         var descText = document.createElement('a-text');
         descText.setAttribute('value', data.text);
         descText.setAttribute('align', 'center');
-        descText.setAttribute('width', '1.3');
-        descText.setAttribute('position', '0 0 0.01');
-        descText.setAttribute('wrap-count', '30');
+        descText.setAttribute('width', '1.4'); // Margini interni
+        descText.setAttribute('position', '0 0 0.02'); // Leggermente staccato dal piano per evitare Z-fighting
+        descText.setAttribute('wrap-count', '32'); // Controlla la dimensione del font
+        descText.setAttribute('color', '#FFF');
 
         textGroup.appendChild(bgPlane);
         textGroup.appendChild(descText);
@@ -103,6 +123,20 @@ AFRAME.registerComponent('info-spot', {
         el.appendChild(sphere);
         el.appendChild(textGroup);
 
+        // Attiva la logica di controllo
         el.setAttribute('info-panel-logic', '');
+    },
+
+    // Helper per creare la "i" sulla sfera
+    createIconText: function(parent, zPos, yRot) {
+        var txt = document.createElement('a-text');
+        txt.setAttribute('value', 'i');
+        txt.setAttribute('align', 'center');
+        txt.setAttribute('font', 'roboto'); // Font più pulito se disponibile, o standard
+        txt.setAttribute('position', `0 0 ${zPos}`);
+        txt.setAttribute('rotation', `0 ${yRot} 0`);
+        txt.setAttribute('width', '4');
+        txt.setAttribute('color', 'white');
+        parent.appendChild(txt);
     }
 });

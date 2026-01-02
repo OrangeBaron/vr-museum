@@ -13,7 +13,7 @@ export const RoomManager = {
         const rig = document.getElementById('rig');
         const navMeshComponent = rig.components['limit-to-navmesh'];
 
-        // Pausa il controllo navmesh mentre carichiamo
+        // Pausa il controllo navmesh mentre carichiamo per evitare cadute
         if (navMeshComponent) {
             navMeshComponent.pause(); 
         }
@@ -37,21 +37,20 @@ export const RoomManager = {
                     camera.components['look-controls'].pitchObject.rotation.x = 0;
                 }
 
-                // 4. Aggiorna NavMesh safe position
-                if (navMeshComponent) {
-                    navMeshComponent.lastPosition.set(startPos.x, startPos.y, startPos.z);
-                }
+                // Funzione da eseguire quando la stanza è PRONTA
+                const onRoomReady = () => {
+                    console.log("Stanza pronta. Riattivazione sistemi.");
 
-                // Attendi un attimo che il DOM si stabilizzi
-                setTimeout(() => {
                     // Riattiva il NavMesh
                     if (navMeshComponent) {
-                        navMeshComponent.lastPosition.copy(rig.object3D.position);
+                        // FORZIAMO la lastPosition alla destinazione di spawn.
+                        // Questo è cruciale: ignora qualsiasi "drift" fisico avvenuto durante il caricamento.
+                        navMeshComponent.lastPosition.set(startPos.x, startPos.y, startPos.z);
                         navMeshComponent.play(); 
                         console.log("Navmesh riattivato.");
                     }
 
-                    // Aggiorna gli oggetti interagibili per il player (nuova funzione aggiunta in player.js)
+                    // Aggiorna gli oggetti interagibili per il player
                     const handLogics = document.querySelectorAll('[hand-logic]');
                     handLogics.forEach(el => {
                        if(el.components['hand-logic'].refreshCollidables) {
@@ -59,16 +58,38 @@ export const RoomManager = {
                        }
                     });
 
-                    // Nascondi il loader
+                    // Nascondi il loader solo ora che tutto è visibile e solido
                     if (loader) loader.classList.add('fade-out');
+                };
 
-                }, 500); // Mezzo secondo di sicurezza
+                // 4. Rilevamento caricamento Modello 3D
+                // Cerchiamo se c'è un modello GLTF nella stanza appena iniettata
+                const newModel = container.querySelector('[gltf-model]');
+
+                if (newModel) {
+                    // Se c'è un modello, aspettiamo che sia caricato completamente
+                    newModel.addEventListener('model-loaded', onRoomReady);
+                    
+                    // Fallback di sicurezza: se per qualche motivo l'evento non parte entro 10 secondi, sblocca comunque
+                    setTimeout(() => {
+                        if (!loader.classList.contains('fade-out')) {
+                            console.warn("Timeout caricamento modello scaduto, forzo apertura.");
+                            onRoomReady();
+                        }
+                    }, 10000);
+                } else {
+                    // Se la stanza non ha modelli 3D (es. è solo UI o skybox), è subito pronta
+                    onRoomReady();
+                }
             })
             .catch(err => {
-                console.error(err);
-                if(loader) loader.classList.add('fade-out'); // Nascondi comunque in caso di errore
+                console.error("Errore caricamento stanza:", err);
+                if(loader) loader.classList.add('fade-out'); // Nascondi comunque in caso di errore critico
+                
+                // Riattiva navmesh per non lasciare il player bloccato, anche se c'è errore
+                if (navMeshComponent) navMeshComponent.play();
             });
     }
 };
 
-window.RoomManager = RoomManager;
+window.RoomManager = RoomManager; //

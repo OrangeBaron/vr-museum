@@ -1,5 +1,11 @@
 <a-entity id="room-hospital">
-    <a-entity id="modello-ospedale" gltf-model="#hospital-model" position="0 0 0"></a-entity>
+    
+    <a-entity 
+      id="modello-ospedale" 
+      gltf-model="url(assets/models/hospital.glb)" 
+      position="0 0 0"
+      material="shader: flat">
+    </a-entity>
 
     <a-plane 
       class="nav-floor"
