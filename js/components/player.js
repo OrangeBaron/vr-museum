@@ -4,6 +4,20 @@ AFRAME.registerComponent('hand-logic', {
       this.meshFixed = false;
       this.lastInteraction = 0; 
       this.collidables = []; 
+      
+      // OTTIMIZZAZIONE: Aggiorna la lista solo ogni 2 secondi, non ad ogni frame
+      this.updateInterval = setInterval(() => {
+          this.refreshCollidables();
+      }, 2000);
+  },
+
+  // Funzione per forzare l'aggiornamento (chiamabile dal RoomManager)
+  refreshCollidables: function() {
+      this.collidables = document.querySelectorAll('.collidable');
+  },
+
+  remove: function() {
+      if (this.updateInterval) clearInterval(this.updateInterval);
   },
 
   tick: function () {
@@ -16,12 +30,17 @@ AFRAME.registerComponent('hand-logic', {
           }
       }
 
-      this.collidables = document.querySelectorAll('.collidable');
+      // Usa la lista cachata, molto più veloce
+      if (this.collidables.length === 0) return;
+
       var handPos = new THREE.Vector3();
       this.el.object3D.getWorldPosition(handPos);
 
       for (var i = 0; i < this.collidables.length; i++) {
           var target = this.collidables[i];
+          // Controllo di sicurezza se l'oggetto esiste ancora
+          if (!target.object3D) continue;
+
           var targetPos = new THREE.Vector3();
           target.object3D.getWorldPosition(targetPos);
           var distance = handPos.distanceTo(targetPos);
@@ -39,7 +58,8 @@ AFRAME.registerComponent('hand-logic', {
                   // Haptic feedback (vibrazione)
                   var handControls = this.el.components['hand-controls'];
                   if (handControls && handControls.controller && handControls.controller.gamepad && handControls.controller.gamepad.hapticActuators) {
-                      handControls.controller.gamepad.hapticActuators[0].pulse(1.0, 100);
+                      var actuator = handControls.controller.gamepad.hapticActuators[0];
+                      if(actuator) actuator.pulse(1.0, 100);
                   }
               }
           }
